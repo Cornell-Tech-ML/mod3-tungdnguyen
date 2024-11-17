@@ -258,7 +258,7 @@ def _sum_practice(out: Storage, a: Storage, size: int) -> None:
     pos = cuda.threadIdx.x
     
     # Load data into shared memory
-    if i < size:
+    if i < size and pos < BLOCK_DIM:
         cache[pos] = a[i]
     cuda.syncthreads()
     
@@ -274,7 +274,7 @@ jit_sum_practice = cuda.jit()(_sum_practice)
 
 
 def sum_practice(a: Tensor) -> TensorData:
-    """Practice sum kernel to prepare for reduce. Non-GPU version."""
+    """CUDA practice sum kernel to prepare for reduce. This function calls the jit version of sum practice."""
     (size,) = a.shape
     threadsperblock = THREADS_PER_BLOCK
     blockspergrid = (size // THREADS_PER_BLOCK) + 1
@@ -317,6 +317,8 @@ def tensor_reduce(
         out_index = cuda.local.array(MAX_DIMS, numba.int32)
         out_pos = cuda.blockIdx.x
         pos = cuda.threadIdx.x
+
+
         
 
     return jit(_reduce)  # type: ignore
