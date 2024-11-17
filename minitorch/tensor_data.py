@@ -46,7 +46,10 @@ def index_to_position(index: Index, strides: Strides) -> int:
         Position in storage
 
     """
-    return np.dot(index, strides)
+    position = 0 
+    for ind,stride in zip(index, strides):
+        position += ind * stride 
+    return position
 
 
 def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
@@ -63,9 +66,11 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
 
     """
     # Convert ordinal to index
+    cur_ord = ordinal + 0
     for i in range(len(shape) - 1, -1, -1):
-        out_index[i] = ordinal % shape[i]
-        ordinal //= shape[i]
+        sh = shape[i]
+        out_index[i] = int(cur_ord % sh)
+        cur_ord = cur_ord // sh
 
 
 def broadcast_index(
@@ -89,32 +94,13 @@ def broadcast_index(
         None
 
     """
-    big_index_reverse = list(reversed(big_index))
-    big_shape_reverse = list(reversed(big_shape))
-    shape_reversed = list(reversed(shape))
-    if len(big_shape) < len(shape):
-        raise IndexingError(
-            f"Dimension at index big_shape must >="
-            f"dimension of shape: {len(big_shape)} "
-            f"vs {len(shape)}."
-        )
-
-    for i in range(0, len(shape_reversed)):
-        big_ind = big_index_reverse[i]
-        small_dim = shape_reversed[i]
-        big_dim = big_shape_reverse[i]
-        if (small_dim != big_dim and big_dim != 1 and small_dim != 1) or (
-            big_dim < small_dim
-        ):
-            raise IndexingError(
-                f"Dimension at index big_shape must match"
-                f"dimension of shape: {small_dim} "
-                f"vs {big_shape_reverse[i]}."
-            )
-        elif small_dim == 1 and big_dim != 1:
-            out_index[len(shape) - i - 1] = 0
+    for i in range(len(shape)):
+        s = shape[i]
+        if s > 1:
+            out_index[i] = big_index[i+ (len(big_shape) - len(shape))]
         else:
-            out_index[len(shape) - i - 1] = big_ind
+            out_index[i] = 0
+    return None
 
 
 def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:

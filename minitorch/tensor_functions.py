@@ -267,25 +267,21 @@ class Permute(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, order: Tensor) -> Tensor:
         """Forward pass of Permute."""
-        order_list = [int(order[i]) for i in range(order.size)]
-        ctx.save_for_backward(order_list)
-        permuted_tensor = t1._tensor.permute(*order_list)
-        new_tensor = minitorch.Tensor.make(
-            permuted_tensor._storage,
-            shape=tuple([t1.shape[i] for i in order_list]),
-            backend=t1.backend,
-        )
-        return new_tensor
+        ctx.save_for_backward(order)
+        return t1._new(t1._tensor.permute(*[int(order[i]) for i in range(order.size)]))
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
         """Backward pass of permute. Returns the original tensor"""
-        (order_list,) = ctx.saved_values
         # Calculate the inverse permutation
-        inverse_order = [0] * len(order_list)
-        for i, p in enumerate(order_list):
-            inverse_order[p] = i
-        return grad_output.permute(*inverse_order), 0.0
+        order: Tensor = ctx.saved_values[0]
+        order2: List[int] = [
+            a[0]
+            for a in sorted(
+                enumerate([order[i] for i in range(order.size)]), key=lambda a: a[1]
+            )
+        ]
+        return grad_output._new(grad_output._tensor.permute(*order2)), 0.0
 
 
 class View(Function):

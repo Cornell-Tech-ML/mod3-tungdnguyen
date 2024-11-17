@@ -7,6 +7,7 @@ from typing_extensions import Protocol
 
 from . import operators
 from .tensor_data import (
+    MAX_DIMS,
     IndexingError,
     broadcast_index,
     index_to_position,
@@ -271,8 +272,8 @@ def tensor_map(
         in_shape: Shape,
         in_strides: Strides,
     ) -> None:
-        out_index: Index = np.zeros(len(out_shape), dtype=np.int32)
-        in_index: Index = np.zeros(len(in_shape), dtype=np.int32)
+        out_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
+        in_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
 
         for i in range(len(out)):
             to_index(i, out_shape, out_index)
@@ -330,9 +331,9 @@ def tensor_zip(
         b_shape: Shape,
         b_strides: Strides,
     ) -> None:
-        out_index: Index = np.zeros(len(out_shape), dtype=np.int32)
-        a_index: Index = np.zeros(len(a_shape), dtype=np.int32)
-        b_index: Index = np.zeros(len(b_shape), dtype=np.int32)
+        out_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
+        a_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
+        b_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
         for i in range(len(out)):
             to_index(i, out_shape, out_index)
             try:
@@ -375,8 +376,8 @@ def tensor_reduce(
         a_strides: Strides,
         reduce_dim: int,
     ) -> None:
-        out_index: Index = np.zeros(len(out_shape), dtype=np.int32)
-        a_index: Index = np.zeros(len(a_shape), dtype=np.int32)
+        out_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
+        a_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
         for i in range(len(out)):
             out_shape[reduce_dim] = 1
             to_index(i, out_shape, out_index)
