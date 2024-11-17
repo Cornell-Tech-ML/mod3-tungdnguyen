@@ -352,7 +352,7 @@ def tensor_reduce(
             # If thread position is within the reduction dimension size
             # Loads the entire data of the reduced dimension into the shared memory.
             if pos < a_shape[reduce_dim]:
-                to_index(i, out_shape, out_index)
+                to_index(out_pos, out_shape, out_index)
                 out_index[reduce_dim] = pos
                 a_pos = index_to_position(out_index, a_strides)
                 cache[pos] = a_storage[a_pos]
