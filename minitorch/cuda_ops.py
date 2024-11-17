@@ -258,7 +258,6 @@ def _sum_practice(out: Storage, a: Storage, size: int) -> None:
     pos = cuda.threadIdx.x
     
     # Load data into shared memory
-    cache[pos] = 0.0
     if i < size:
         cache[pos] = a[i]
     cuda.syncthreads()
@@ -268,8 +267,8 @@ def _sum_practice(out: Storage, a: Storage, size: int) -> None:
         temp = 0.0
         print("Starts calculating at: ", cuda.blockIdx.x, " at threads: ", cuda.threadIdx.x)
         #Calculates the sum based on the block size or the remaining block size.
-        for j in range(min(BLOCK_DIM, size - cuda.blockIdx.x * BLOCK_DIM)):
-            temp += cache[j]
+        for j in range(BLOCK_DIM):
+            temp += 1
         out[cuda.blockIdx.x] = temp
 
 jit_sum_practice = cuda.jit()(_sum_practice)
