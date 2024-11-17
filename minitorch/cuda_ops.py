@@ -258,13 +258,15 @@ def _sum_practice(out: Storage, a: Storage, size: int) -> None:
     pos = cuda.threadIdx.x
     
     # Load data into shared memory
-    if i < size and pos < BLOCK_DIM:
+    cache[pos] = 0.0
+    if i < size:
         cache[pos] = a[i]
     cuda.syncthreads()
     
     # Sum each block starting from the first element of the block.
-    if pos == 0:
+    if pos == 0 and i < size:
         temp = 0.0
+        print("Starts calculating at: ", cuda.blockIdx.x, " at threads: ", cuda.threadIdx.x)
         #Calculates the sum based on the block size or the remaining block size.
         for j in range(min(BLOCK_DIM, size - cuda.blockIdx.x * BLOCK_DIM)):
             temp += cache[j]
@@ -317,6 +319,10 @@ def tensor_reduce(
         out_index = cuda.local.array(MAX_DIMS, numba.int32)
         out_pos = cuda.blockIdx.x
         pos = cuda.threadIdx.x
+        reduce_dim_stride = a_strides[reduce_dim]
+        a_shape_reduce_dim = a_shape[reduce_dim]
+
+    raise NotImplementedError("Need to implement for Task 3.3")
 
 
         
