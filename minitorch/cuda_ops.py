@@ -266,6 +266,7 @@ def _sum_practice(out: Storage, a: Storage, size: int) -> None:
     if pos == 0 and i < size:
         temp = 0.0
         #Calculates the sum based on the block size or the remaining block size.
+        print("Starts calculating at: ", cuda.blockIdx.x, " at threads: ", cuda.threadIdx.x)
         for j in range(min(BLOCK_DIM, size - cuda.blockIdx.x * BLOCK_DIM)):
             temp += cache[j]
         out[cuda.blockIdx.x] = temp
