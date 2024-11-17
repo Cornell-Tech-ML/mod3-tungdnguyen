@@ -360,13 +360,14 @@ def tensor_reduce(
             cache[pos] = reduce_value
         cuda.syncthreads()
 
-        stride = 2
-        while stride <= BLOCK_DIM//2:
-            if pos % stride == 0 and pos + stride//2 < a_shape[reduce_dim]:
-                cache[pos] = fn(cache[pos], cache[pos + stride//2])
+        # Reduction in shared memory
+        stride = BLOCK_DIM // 2
+        while stride > 0:
+            if pos < stride and pos + stride < a_shape[reduce_dim]:
+                cache[pos] = fn(cache[pos], cache[pos + stride])
             cuda.syncthreads()
-            stride *= 2
-    
+            stride //= 2
+
         # Write result
         if pos == 0:
             out[out_pos] = cache[0]
