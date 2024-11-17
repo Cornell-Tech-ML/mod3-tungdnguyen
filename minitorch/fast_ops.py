@@ -179,8 +179,8 @@ def tensor_map(
                 out[i] = fn(in_storage[i])
         else:
             for i in prange(len(out)):          
-                out_index = np.empty(MAX_DIMS, dtype=np.int32)
-                in_index = np.empty(MAX_DIMS, dtype=np.int32)
+                out_index: Index  = np.empty(MAX_DIMS, dtype=np.int32)
+                in_index: Index  = np.empty(MAX_DIMS, dtype=np.int32)
                 to_index(i, out_shape, out_index)
                 broadcast_index(out_index, out_shape, in_shape, in_index)
                 in_pos = index_to_position(in_index, in_strides)
@@ -231,9 +231,9 @@ def tensor_zip(
                 out[i] = fn(a_storage[i], b_storage[i])
         else:
             for i in prange(len(out)):
-                out_index = np.empty(MAX_DIMS, dtype=np.int32)
-                a_index = np.empty(MAX_DIMS, dtype=np.int32)
-                b_index = np.empty(MAX_DIMS, dtype=np.int32)
+                out_index: Index = np.empty(MAX_DIMS, dtype=np.int32)
+                a_index: Index  = np.empty(MAX_DIMS, dtype=np.int32)
+                b_index: Index  = np.empty(MAX_DIMS, dtype=np.int32)
                 to_index(i, out_shape, out_index)
                 broadcast_index(out_index, out_shape, a_shape, a_index)
                 broadcast_index(out_index, out_shape, b_shape, b_index)
@@ -278,8 +278,8 @@ def tensor_reduce(
         reduce_dim_stride = a_strides[reduce_dim]
         a_shape_reduce_dim = a_shape[reduce_dim]
         for i in prange(len(out)):
-            out_index = np.empty(MAX_DIMS, dtype=np.int32)
-            a_index = np.empty(MAX_DIMS, dtype=np.int32)
+            out_index: Index  = np.empty(MAX_DIMS, dtype=np.int32)
+            a_index: Index  = np.empty(MAX_DIMS, dtype=np.int32)
             out_shape[reduce_dim] = 1
             to_index(i, out_shape, out_index)
             out_pos = index_to_position(out_index, out_strides)

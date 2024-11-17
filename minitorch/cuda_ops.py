@@ -29,11 +29,36 @@ FakeCUDAKernel = Any
 Fn = TypeVar("Fn")
 
 
-def device_jit(fn: Fn, **kwargs) -> Fn:
+def device_jit(fn: Fn, **kwargs: Any) -> Fn:
+    """Returns a device jitted version of the function.
+
+    Args:
+    ----
+        fn: function to jit.
+        kwargs: keyword arguments to pass to the jit.
+
+    Returns:
+    -------
+        jitted function.
+
+        
+    """
     return _jit(device=True, **kwargs)(fn)  # type: ignore
 
 
-def jit(fn, **kwargs) -> FakeCUDAKernel:
+def jit(fn: Fn, **kwargs: Any) -> FakeCUDAKernel:
+    """Returns a jitted version of the function.
+    
+    Args:
+    ----
+        fn: function to jit.
+        kwargs: keyword arguments to pass to the jit.
+
+    Returns:
+    -------
+        jitted function.
+
+    """
     return _jit(**kwargs)(fn)  # type: ignore
 
 
@@ -67,6 +92,7 @@ class CudaOps(TensorOps):
 
     @staticmethod
     def zip(fn: Callable[[float, float], float]) -> Callable[[Tensor, Tensor], Tensor]:
+        """See `tensor_ops.py`"""
         cufn: Callable[[float, float], float] = device_jit(fn)
         f = tensor_zip(cufn)
 
@@ -86,6 +112,7 @@ class CudaOps(TensorOps):
     def reduce(
         fn: Callable[[float, float], float], start: float = 0.0
     ) -> Callable[[Tensor, int], Tensor]:
+        """See `tensor_ops.py`"""
         cufn: Callable[[float, float], float] = device_jit(fn)
         f = tensor_reduce(cufn)
 
@@ -106,6 +133,7 @@ class CudaOps(TensorOps):
 
     @staticmethod
     def matrix_multiply(a: Tensor, b: Tensor) -> Tensor:
+        """Matrix multiply 2 tensors."""
         # Make these always be a 3 dimensional multiply
         both_2d = 0
         if len(a.shape) == 2:
@@ -318,14 +346,34 @@ def tensor_reduce(
         out_pos = cuda.blockIdx.x
         pos = cuda.threadIdx.x
         i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
-
-        if i < out_size and pos < BLOCK_DIM:
-            out_shape[reduce_dim] = 1
-            to_index(i, out_shape, out_index)
-            out_pos = index_to_position(out_index, out_strides)
-            out[out_pos] = reduce_value
-
+        # Only wants to run the sequence inside the block.
+        #Collapse into the same block first.
+        if i < out_size:
+            #Loads all data into shared memory
+            cache[pos] = a_storage[i]
+            cuda.syncthreads()
         
+        to_index(i, out_shape, out_index)
+        a_index = out_index.copy()
+        a_pos_initial = index_to_position(a_index, a_strides)
+        reduce_dim_stride = a_strides[reduce_dim]
+        a_shape_reduce_dim = a_shape[reduce_dim]
+        stride = 1
+        #starts collapsing the data into the same block at out[out_pos]
+        # each threads run twice the size of the stride.
+        #Stride = skip the number of threads.
+        while stride <= (a_shape_reduce_dim//2):
+            if pos % stride == 0:
+                temp = reduce_value
+                for j in range(2):
+                    a_pos = int(a_pos_initial + j*stride*reduce_dim_stride)
+                    if a_pos < a_shape_reduce_dim:
+                        temp = fn(temp, cache[a_pos])
+                cache[pos] = temp
+            cuda.syncthreads()
+            stride *= 2
+        cuda.syncthreads()
+        out[out_pos] = cache[0]
 
     return jit(_reduce)  # type: ignore
 
