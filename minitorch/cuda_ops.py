@@ -346,6 +346,7 @@ def tensor_reduce(
         out_pos = cuda.blockIdx.x
         pos = cuda.threadIdx.x
         i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
+
         # Only wants to run the sequence inside the block.
         #Collapse into the same block first.
         if i < out_size:
@@ -374,6 +375,9 @@ def tensor_reduce(
             stride *= 2
         cuda.syncthreads()
         out[out_pos] = cache[0]
+
+        if pos == 0:
+            out[out_pos] = cache[0]
 
     return jit(_reduce)  # type: ignore
 
