@@ -319,11 +319,12 @@ def tensor_reduce(
         out_index = cuda.local.array(MAX_DIMS, numba.int32)
         out_pos = cuda.blockIdx.x
         pos = cuda.threadIdx.x
-        reduce_dim_stride = a_strides[reduce_dim]
-        a_shape_reduce_dim = a_shape[reduce_dim]
 
-    raise NotImplementedError("Need to implement for Task 3.3")
-
+        if i < out_size and pos < BLOCK_DIM:
+            out_shape[reduce_dim] = 1
+            to_index(i, out_shape, out_index)
+            out_pos = index_to_position(out_index, out_strides)
+            out[out_pos] = reduce_value
 
         
 
