@@ -343,31 +343,31 @@ def tensor_reduce(
         BLOCK_DIM = 1024
         cache = cuda.shared.array(BLOCK_DIM, numba.float64)
         out_index = cuda.local.array(MAX_DIMS, numba.int32)
+        out_pos = cuda.blockIdx.x
         pos = cuda.threadIdx.x
-        i = cuda.blockIdx.x
-
-        # Initialize shared memory
-        if pos < a_shape[reduce_dim]:
-            # Calculate position in a_storage
-            to_index(i, out_shape, out_index)
-            out_index[reduce_dim] = pos
-            a_pos = index_to_position(out_index, a_strides)
-            cache[pos] = a_storage[a_pos]
-        else:
-            cache[pos] = reduce_value
-        cuda.syncthreads()
-
-        # Reduction in shared memory
-        stride = BLOCK_DIM // 2
-        while stride > 0:
-            if pos < stride and pos + stride < a_shape[reduce_dim]:
-                cache[pos] = fn(cache[pos], cache[pos + stride])
+        i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
+        a_pos = cuda.local.array(MAX_DIMS, numba.int32)
+    
+        if i < out_size:
+            # If thread position is within the reduction dimension size
+            # Loads the entire data of the reduced dimension into the shared memory.
+            if pos < a_shape[reduce_dim]:
+                to_index(i, out_shape, out_index)
+                out_index[reduce_dim] = pos
+                a_pos = index_to_position(out_index, a_strides)
+                cache[pos] = a_storage[a_pos]
             cuda.syncthreads()
-            stride //= 2
 
-        # Write result
-        if pos == 0:
-            out[i] = cache[0]
+            # Reduction in shared memory
+            stride = 2
+            while stride <= BLOCK_DIM//2:
+                if pos % stride == 0 and (pos + stride//2) < BLOCK_DIM:
+                    cache[pos] = fn[cache[pos],cache[pos + stride//2]]
+                cuda.syncthreads()
+                stride *= 2
+            # Write result
+            if pos == 0:
+                out[out_pos] = fn(reduce_value, cache[0])
 
     return jit(_reduce)  # type: ignore
 
