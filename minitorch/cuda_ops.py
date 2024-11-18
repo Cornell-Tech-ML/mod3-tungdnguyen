@@ -405,8 +405,8 @@ def _mm_practice(out: Storage, a: Storage, b: Storage, size: int) -> None:
     BLOCK_DIM = 32
     a_shared = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), dtype=numba.float64)
     b_shared = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), dtype=numba.float64)
-    i = cuda.blockIdx.x * THREADS_PER_BLOCK + cuda.threadIdx.x
-    j = cuda.blockIdx.y * THREADS_PER_BLOCK + cuda.threadIdx.y
+    i = cuda.threadIdx.x
+    j = cuda.threadIdx.y
 
     if i < size and j < size:
         # Bring to shared memory for both a and b
@@ -418,7 +418,7 @@ def _mm_practice(out: Storage, a: Storage, b: Storage, size: int) -> None:
         temp = 0.0
         for k in range(size):
             temp += a_shared[i*size + k] * b_shared[k*size + j]
-        out[i,j] = temp
+        out[i*size + j] = temp
 
 jit_mm_practice = jit(_mm_practice)
 
