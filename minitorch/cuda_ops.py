@@ -515,13 +515,19 @@ def _tensor_matrix_multiply(
             cuda.syncthreads()
 
             # Calculate the position of the value in the a and b tensors. This is the position of the block in the tensor.
-            # This code runs simultanously for all threads in the block. -> Reads in the values of block_row and block_col into shared memory in a loop..
-            a_pos = batch*a_batch_stride + i*a_strides[1] + (a_col_block*BLOCK_DIM + pj)*a_strides[2]
-            b_pos = batch*b_batch_stride + (b_row_block*BLOCK_DIM + pi)*b_strides[1] + j*b_strides[2]
-            # Copy into shared memory for a and b matrices.
-            a_shared[pi, pj] = a_storage[a_pos]
-            b_shared[pi, pj] = b_storage[b_pos]
-            cuda.syncthreads()
+            # This code runs simultanously for all threads in the block. -> Reads in the values of block_row and block_col into shared memory in a loop.
+
+            #Guard against out of bounds access.
+            if a_col_block*BLOCK_DIM + pj < a_shape[2] and i < a_shape[1]:
+                a_pos = batch*a_batch_stride + i*a_strides[1] + (a_col_block*BLOCK_DIM + pj)*a_strides[2]
+                # Copy into shared memory for b matrix.
+                a_shared[pi, pj] = a_storage[a_pos]
+            #Guard against out of bounds access.
+            if b_row_block*BLOCK_DIM + pi < b_shape[1] and j < b_shape[2]:
+                b_pos = batch*b_batch_stride + (b_row_block*BLOCK_DIM + pi)*b_strides[1] + j*b_strides[2]
+                # Copy into shared memory for b matrix.
+                b_shared[pi, pj] = b_storage[b_pos]
+                cuda.syncthreads()
 
             # Compute the dot product
             if i < out_shape[1] and j < out_shape[2]:
