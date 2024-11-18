@@ -417,7 +417,7 @@ def _mm_practice(out: Storage, a: Storage, b: Storage, size: int) -> None:
         # Compute the dot product
         temp = 0.0
         for k in range(size):
-            temp += a_shared[i*size + k] * b_shared[k*size + j]
+            temp += a_shared[i,k] * b_shared[k, j]
         out[i*size + j] = temp
 
 jit_mm_practice = jit(_mm_practice)
