@@ -486,8 +486,11 @@ def _tensor_matrix_multiply(
     #    a) Copy into shared memory for a matrix.
     #    b) Copy into shared memory for b matrix
     #    c) Compute the dot produce for position c[i, j]
-    # TODO: Implement for Task 3.4.
-    raise NotImplementedError("Need to implement for Task 3.4")
+
+    for k in range(size):
+        temp += a_shared[pi, k] * b_shared[k, pj]
+    out[batch*size*size + i*size + j] = temp
+
 
 
 tensor_matrix_multiply = jit(_tensor_matrix_multiply)
