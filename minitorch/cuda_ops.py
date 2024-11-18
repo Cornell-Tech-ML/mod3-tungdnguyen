@@ -486,6 +486,13 @@ def _tensor_matrix_multiply(
     #    a) Copy into shared memory for a matrix.
     #    b) Copy into shared memory for b matrix
     #    c) Compute the dot produce for position c[i, j]
+
+
+    # Code Plan:
+    # 1) Move across shared dimension by block dim.
+    #    a) Copy into shared memory for a matrix.
+    #    b) Copy into shared memory for b matrix
+    #    c) Compute the dot produce for position c[i, j]
     
     # Initialize the temp window value to 0.0
     window_value = 0.0
@@ -529,7 +536,6 @@ def _tensor_matrix_multiply(
     # Check if the position is within the bounds of the out tensor
     if i < out_shape[1] and j < out_shape[2]:
         out_pos = batch * out_strides[0] + i * out_strides[1] + j * out_strides[2]
-        if out_pos < out_size:
-            out[out_pos] = window_value
+        out[out_pos] = window_value
 
 tensor_matrix_multiply = jit(_tensor_matrix_multiply)
