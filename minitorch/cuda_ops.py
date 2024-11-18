@@ -513,24 +513,25 @@ def _tensor_matrix_multiply(
     # Move across the shared dimension by block dim.
     for a_col_block in range(a_col_blocks):
         for b_row_block in range(b_row_blocks):
-            for k in range(BLOCK_DIM):
-                # Clear shared memory
-                a_shared[pi, k] = 0.0
-                b_shared[k, pj] = 0.0
-                cuda.syncthreads()
-                # Calculate the position of the value in the a and b tensors.
-                a_pos = batch*a_batch_stride + (row_block_number*BLOCK_DIM + pi)*a_strides[1] + (a_col_block*BLOCK_DIM +k)*a_strides[2]
-                b_pos = batch*b_batch_stride + (b_row_block*BLOCK_DIM + k)*b_strides[1] + (col_block_number*BLOCK_DIM + pj)*b_strides[2]
-                # Reads in the values of block_row and block_col into shared memory in a loop
-                a_shared[pi, k] = a_storage[a_pos]
-                b_shared[k, pj] = b_storage[b_pos]
+            # Clear shared memory
+            # This code runs simultanously for all threads in the block. -> Clear all the values in the shared memory.
+            a_shared[pi, pj] = 0.0
+            b_shared[pi, pj] = 0.0
+            cuda.syncthreads()
+
+            # Calculate the position of the value in the a and b tensors.
+            a_pos = batch*a_batch_stride + i*a_strides[1] + (a_col_block*BLOCK_DIM + pj)*a_strides[2]
+            b_pos = batch*b_batch_stride + (b_row_block*BLOCK_DIM + pi)*b_strides[1] + j*b_strides[2]
+            # Reads in the values of block_row and block_col into shared memory in a loop
+            a_shared[pi, pj] = a_storage[a_pos]
+            b_shared[pi, pj] = b_storage[b_pos]
             cuda.syncthreads()
 
             # Compute the dot product
             if i < out_shape[1] and j < out_shape[2]:
                 for k in range(BLOCK_DIM):
                     window_value += a_shared[pi,k] * b_shared[k,pj]
-            cuda.syncthreads()
+        cuda.syncthreads()
     # The final value of c[i,j] is the sum of the dot products in each BLOCK_DIM window into that position.
     # c[i,j] = sum(a[i,k] * b[k,j]) for k in range(BLOCK_DIM)
     # Write the final temp value window_value to the out tensor.
