@@ -492,7 +492,7 @@ def _tensor_matrix_multiply(
 
     # Move across the shared dimension by block dim. Block slide simutaneously slides across the columns of a and rows of b.
     # Block sliding is the same for columns of a and rows of b since a_shape[-1] == b_shape[-2] for matrix multiplication.
-    for block_slide in range(0, b_shape[1], BLOCK_DIM):
+    for block_slide in range(0, a_shape[2], BLOCK_DIM):
         # Clear shared memory
         # This code runs simultanously for all threads in the block. -> Clear all the values in the shared memory.
         a_shared[pi, pj] = 0.0
