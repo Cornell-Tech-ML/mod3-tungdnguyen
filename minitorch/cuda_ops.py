@@ -486,10 +486,6 @@ def _tensor_matrix_multiply(
     #    a) Copy into shared memory for a matrix.
     #    b) Copy into shared memory for b matrix
     #    c) Compute the dot produce for position c[i, j]
-
-
-    #Number of blocks can fit in the column dimension of a. This is because we slide the block across the columns of a.
-    a_col_blocks = a_shape[2] // BLOCK_DIM
     
     # Initialize the temp window value to 0.0
     window_value = 0.0
@@ -515,7 +511,8 @@ def _tensor_matrix_multiply(
             b_pos = batch*b_batch_stride + (block_slide + pi)*b_strides[1] + j*b_strides[2]
             # Copy into shared memory for b matrix.
             b_shared[pi, pj] = b_storage[b_pos]
-            cuda.syncthreads()
+        
+        cuda.syncthreads()
 
         # Compute the dot product
         if i < out_shape[1] and j < out_shape[2]:
