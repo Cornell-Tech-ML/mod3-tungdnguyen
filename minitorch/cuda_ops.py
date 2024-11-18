@@ -347,7 +347,7 @@ def tensor_reduce(
         out_pos = cuda.blockIdx.x
         i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
 
-        if i < out_size:
+        if i < out_size*a_shape[reduce_dim]:
             if pos < a_shape[reduce_dim]:
                 to_index(out_pos, out_shape, out_index)
                 out_index[reduce_dim] = pos
