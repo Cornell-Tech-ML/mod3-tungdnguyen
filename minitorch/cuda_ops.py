@@ -508,13 +508,13 @@ def _tensor_matrix_multiply(
 
         # Calculate the position of the value in the a and b tensors.
         #Guard against out of bounds access.
-        if block_slide + pj < a_shape[2] and i < a_shape[1]:
+        if block_slide + pj < a_shape[2] and i < out_shape[1]:
             # the position of the value in the a tensor belongs to current row i.
             a_pos = batch*a_batch_stride + i*a_strides[1] + (block_slide + pj)*a_strides[2]
             # Copy into shared memory for b matrix.
             a_shared[pi, pj] = a_storage[a_pos]
         #Guard against out of bounds access.
-        if block_slide + pi < b_shape[1] and j < b_shape[2]:
+        if block_slide + pi < b_shape[1] and j < out_shape[2]:
             # the position of the value in the a tensor belongs to current column j
             b_pos = batch * b_batch_stride + (block_slide + pi) * b_strides[1] + j * b_strides[2]
             # Copy into shared memory for b matrix.
@@ -536,6 +536,7 @@ def _tensor_matrix_multiply(
     # Check if the position is within the bounds of the out tensor
     if i < out_shape[1] and j < out_shape[2]:
         out_pos = batch * out_strides[0] + i * out_strides[1] + j * out_strides[2]
-        out[out_pos] = window_value
+        if out_pos < out_size:
+            out[out_pos] = window_value
 
 tensor_matrix_multiply = jit(_tensor_matrix_multiply)
