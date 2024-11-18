@@ -464,84 +464,9 @@ def _tensor_matrix_multiply(
     Returns:
         None : Fills in `out`
     """
-    # a_batch_stride = a_strides[0] if a_shape[0] > 1 else 0
-    # b_batch_stride = b_strides[0] if b_shape[0] > 1 else 0
-    # # Batch dimension - fixed
-    # batch = cuda.blockIdx.z
-
-    # BLOCK_DIM = 32
-    # a_shared = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), numba.float64)
-    # b_shared = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), numba.float64)
-
-    # # The final position c[i, j]
-    # i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
-    # j = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
-
-    # # The local position in the block.
-    # pi = cuda.threadIdx.x
-    # pj = cuda.threadIdx.y
-
-    # # Code Plan:
-    # # 1) Move across shared dimension by block dim.
-    # #    a) Copy into shared memory for a matrix.
-    # #    b) Copy into shared memory for b matrix
-    # #    c) Compute the dot produce for position c[i, j]
-
-
-    # # Code Plan:
-    # # 1) Move across shared dimension by block dim.
-    # #    a) Copy into shared memory for a matrix.
-    # #    b) Copy into shared memory for b matrix
-    # #    c) Compute the dot produce for position c[i, j]
-    
-    # # Initialize the temp window value to 0.0
-    # window_value = 0.0
-
-    #   # Move across the shared dimension by block dim. Block slide simutaneously slides across the columns of a and rows of b.
-    # # Block sliding is the same for columns of a and rows of b since a_shape[-1] == b_shape[-2].
-    # for block_slide in range(0, a_shape[2], BLOCK_DIM):
-    #     # Clear shared memory
-    #     # This code runs simultanously for all threads in the block. -> Clear all the values in the shared memory.
-    #     a_shared[pi, pj] = 0.0
-    #     b_shared[pi, pj] = 0.0
-    #     cuda.syncthreads()
-
-    #     # Calculate the position of the value in the a and b tensors.
-    #     #Guard against out of bounds access.
-    #     if block_slide + pj < a_shape[2] and i < out_shape[1]:
-    #         # the position of the value in the a tensor belongs to current row i.
-    #         a_pos = batch*a_batch_stride + i*a_strides[1] + (block_slide + pj)*a_strides[2]
-    #         # Copy into shared memory for b matrix.
-    #         a_shared[pi, pj] = a_storage[a_pos]
-    #     #Guard against out of bounds access.
-    #     if block_slide + pi < b_shape[1] and j < out_shape[2]:
-    #         # the position of the value in the a tensor belongs to current column j
-    #         b_pos = batch * b_batch_stride + (block_slide + pi) * b_strides[1] + j * b_strides[2]
-    #         # Copy into shared memory for b matrix.
-    #         b_shared[pi, pj] = b_storage[b_pos]
-        
-    #     cuda.syncthreads()
-
-    #     # Compute the dot product
-    #     if i < out_shape[1] and j < out_shape[2]:
-    #         #Calculate the number of elements in the dot product. This is the minimum of the remaining elements in the block
-    #         # or the remaining elements in the tensor.
-    #         for k in range(min(BLOCK_DIM, out_shape[2] - block_slide)):
-    #             window_value += a_shared[pi,k] * b_shared[k,pj]
-    #     cuda.syncthreads()
-
-    # # The final value of c[i,j] is the sum of the dot products in each BLOCK_DIM window into that position.
-    # # c[i,j] = sum(a[i,k] * b[k,j]) for k in range(BLOCK_DIM)
-    # # Write the final temp value window_value to the out tensor.
-    # # Check if the position is within the bounds of the out tensor
-    # if i < out_shape[1] and j < out_shape[2]:
-    #     out_pos = batch * out_strides[0] + i * out_strides[1] + j * out_strides[2]
-    #     if out_pos < out_size:
-    #         out[out_pos] = window_value
-
-   # Get batch strides
     a_batch_stride = a_strides[0] if a_shape[0] > 1 else 0
     b_batch_stride = b_strides[0] if b_shape[0] > 1 else 0
+    # Batch dimension - fixed
     batch = cuda.blockIdx.z
 
     BLOCK_DIM = 32
@@ -552,49 +477,59 @@ def _tensor_matrix_multiply(
     i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     j = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
 
-    # The local position in the block
+    # The local position in the block.
     pi = cuda.threadIdx.x
     pj = cuda.threadIdx.y
 
-    # Initialize accumulator
-    acc = 0.0
+    # Code Plan:
+    # 1) Move across shared dimension by block dim.
+    #    a) Copy into shared memory for a matrix.
+    #    b) Copy into shared memory for b matrix
+    #    c) Compute the dot produce for position c[i, j]
 
-    # Loop over k dimension in blocks
-    for k_start in range(0, a_shape[2], BLOCK_DIM):
+    # Initialize the temp window value to 0.0
+    window_value = 0.0
+
+      # Move across the shared dimension by block dim. Block slide simutaneously slides across the columns of a and rows of b.
+    # Block sliding is the same for columns of a and rows of b since a_shape[-1] == b_shape[-2].
+    for block_slide in range(0, a_shape[2], BLOCK_DIM):
         # Clear shared memory
+        # This code runs simultanously for all threads in the block. -> Clear all the values in the shared memory.
         a_shared[pi, pj] = 0.0
         b_shared[pi, pj] = 0.0
         cuda.syncthreads()
 
-        # Load data into shared memory
-        if (i < out_shape[1] and k_start + pj < a_shape[2]):
-            a_idx = (
-                batch * a_batch_stride +
-                i * a_strides[1] +
-                (k_start + pj) * a_strides[2]
-            )
-            a_shared[pi, pj] = a_storage[a_idx]
-
-        if (k_start + pi < b_shape[1] and j < out_shape[2]):
-            b_idx = (
-                batch * b_batch_stride +
-                (k_start + pi) * b_strides[1] +
-                j * b_strides[2]
-            )
-            b_shared[pi, pj] = b_storage[b_idx]
-
+        # Calculate the position of the value in the a and b tensors.
+        #Guard against out of bounds access.
+        if block_slide + pj < a_shape[2] and i < out_shape[1]:
+            # the position of the value in the a tensor belongs to current row i.
+            a_pos = batch*a_batch_stride + i*a_strides[1] + (block_slide + pj)*a_strides[2]
+            # Copy into shared memory for b matrix.
+            a_shared[pi, pj] = a_storage[a_pos]
+        #Guard against out of bounds access.
+        if block_slide + pi < b_shape[1] and j < out_shape[2]:
+            # the position of the value in the a tensor belongs to current column j
+            b_pos = batch * b_batch_stride + (block_slide + pi) * b_strides[1] + j * b_strides[2]
+            # Copy into shared memory for b matrix.
+            b_shared[pi, pj] = b_storage[b_pos]
+        
         cuda.syncthreads()
 
-        # Compute partial dot product
+        # Compute the dot product
         if i < out_shape[1] and j < out_shape[2]:
-            for k in range(min(BLOCK_DIM, a_shape[2] - k_start)):
-                acc += a_shared[pi, k] * b_shared[k, pj]
-
+            #Calculate the number of elements in the dot product. This is the minimum of the remaining elements in the block
+            # or the remaining elements in the tensor.
+            for k in range(min(BLOCK_DIM, a_shape[2] - block_slide)):
+                window_value += a_shared[pi,k] * b_shared[k,pj]
         cuda.syncthreads()
 
-    # Write final result
+    # The final value of c[i,j] is the sum of the dot products in each BLOCK_DIM window into that position.
+    # c[i,j] = sum(a[i,k] * b[k,j]) for k in range(BLOCK_DIM)
+    # Write the final temp value window_value to the out tensor.
+    # Check if the position is within the bounds of the out tensor
     if i < out_shape[1] and j < out_shape[2]:
-        out_idx = batch * out_strides[0] + i * out_strides[1] + j * out_strides[2]
-        out[out_idx] = acc
+        out_pos = batch * out_strides[0] + i * out_strides[1] + j * out_strides[2]
+        if out_pos < out_size:
+            out[out_pos] = window_value
 
 tensor_matrix_multiply = jit(_tensor_matrix_multiply)
