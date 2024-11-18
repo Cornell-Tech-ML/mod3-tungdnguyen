@@ -345,28 +345,30 @@ def tensor_reduce(
         out_index = cuda.local.array(MAX_DIMS, numba.int32)
         pos = cuda.threadIdx.x
         out_pos = cuda.blockIdx.x
+        i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
 
-        if pos < a_shape[reduce_dim]:
-            to_index(out_pos, out_shape, out_index)
-            out_index[reduce_dim] = pos
-            a_pos = index_to_position(out_index, a_strides)
-            cache[pos] = a_storage[a_pos]
-        else:
-            cache[pos] = reduce_value
-        cuda.syncthreads()
-
-        # Reduction in shared memory
-        stride = BLOCK_DIM // 2
-        while stride > 0:
-            if pos < stride and pos + stride < a_shape[reduce_dim]:
-                cache[pos] = fn(cache[pos], cache[pos + stride])
+        if i < out_size:
+            if pos < a_shape[reduce_dim]:
+                to_index(out_pos, out_shape, out_index)
+                out_index[reduce_dim] = pos
+                a_pos = index_to_position(out_index, a_strides)
+                cache[pos] = a_storage[a_pos]
+            else:
+                cache[pos] = reduce_value
             cuda.syncthreads()
-            stride //= 2
 
-        # Write result
-        if pos == 0:
-            new_out_pos = index_to_position(out_index, out_strides)
-            out[new_out_pos] = cache[0]
+            # Reduction in shared memory
+            stride = BLOCK_DIM // 2
+            while stride > 0:
+                if pos < stride and pos + stride < a_shape[reduce_dim]:
+                    cache[pos] = fn(cache[pos], cache[pos + stride])
+                cuda.syncthreads()
+                stride //= 2
+
+            # Write result
+            if pos == 0:
+                new_out_pos = index_to_position(out_index, out_strides)
+                out[new_out_pos] = cache[0]
 
     return jit(_reduce)  # type: ignore
 
