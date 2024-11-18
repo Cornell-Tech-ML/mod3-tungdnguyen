@@ -403,8 +403,8 @@ def _mm_practice(out: Storage, a: Storage, b: Storage, size: int) -> None:
 
     """
     BLOCK_DIM = 32
-    a_shared = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), dtype=numba.float64)
-    b_shared = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), dtype=numba.float64)
+    a_shared = cuda.shared.array(BLOCK_DIM * BLOCK_DIM, dtype=numba.float64)
+    b_shared = cuda.shared.array(BLOCK_DIM * BLOCK_DIM, dtype=numba.float64)
     i = cuda.threadIdx.x
     j = cuda.threadIdx.y
 
@@ -417,7 +417,7 @@ def _mm_practice(out: Storage, a: Storage, b: Storage, size: int) -> None:
         # Compute the dot product
         temp = 0.0
         for k in range(size):
-            temp += a_shared[i,k] * b_shared[k, j]
+            temp += a_shared[i*size + k] * b_shared[k*size + j]
         out[i*size + j] = temp
 
 jit_mm_practice = jit(_mm_practice)
