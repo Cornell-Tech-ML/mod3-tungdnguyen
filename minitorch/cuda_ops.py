@@ -345,9 +345,9 @@ def tensor_reduce(
         out_index = cuda.local.array(MAX_DIMS, numba.int32)
         pos = cuda.threadIdx.x
         out_pos = cuda.blockIdx.x
-        i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
+        # i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
 
-        if i < out_size*a_shape[reduce_dim]:
+        if out_pos < out_size:
             if pos < a_shape[reduce_dim]:
                 to_index(out_pos, out_shape, out_index)
                 out_index[reduce_dim] = pos
@@ -374,7 +374,7 @@ def tensor_reduce(
 
 
 def _mm_practice(out: Storage, a: Storage, b: Storage, size: int) -> None:
-    """This is a practice square MM kernel to prepare for matmul.
+    """Practice square MM kernel to prepare for matmul.
 
     Given a storage `out` and two storage `a` and `b`. Where we know
     both are shape [size, size] with strides [size, 1].
