@@ -495,7 +495,7 @@ def _tensor_matrix_multiply(
     window_value = 0.0
 
     # Move across the shared dimension by block dim.
-    for a_col_block in range(a_col_blocks):
+    for block_slide in range(0, a_shape[2], BLOCK_DIM):
         # Clear shared memory
         # This code runs simultanously for all threads in the block. -> Clear all the values in the shared memory.
         a_shared[pi, pj] = 0.0
@@ -506,13 +506,13 @@ def _tensor_matrix_multiply(
         # This code runs simultanously for all threads in the block. -> Reads in the values of block_row and block_col into shared memory in a loop.
 
         #Guard against out of bounds access.
-        if a_col_block*BLOCK_DIM + pj < a_shape[2] and i < a_shape[1]:
-            a_pos = batch*a_batch_stride + i*a_strides[1] + (a_col_block*BLOCK_DIM + pj)*a_strides[2]
+        if block_slide + pj < a_shape[2] and i < a_shape[1]:
+            a_pos = batch*a_batch_stride + i*a_strides[1] + (block_slide + pj)*a_strides[2]
             # Copy into shared memory for b matrix.
             a_shared[pi, pj] = a_storage[a_pos]
         #Guard against out of bounds access.
-        if a_col_block*BLOCK_DIM + pi < b_shape[1] and j < b_shape[2]:
-            b_pos = batch*b_batch_stride + (a_col_block*BLOCK_DIM + pi)*b_strides[1] + j*b_strides[2]
+        if block_slide + pi < b_shape[1] and j < b_shape[2]:
+            b_pos = batch*b_batch_stride + (block_slide + pi)*b_strides[1] + j*b_strides[2]
             # Copy into shared memory for b matrix.
             b_shared[pi, pj] = b_storage[b_pos]
             cuda.syncthreads()
@@ -521,7 +521,7 @@ def _tensor_matrix_multiply(
         if i < out_shape[1] and j < out_shape[2]:
             #Calculate the number of elements in the dot product. This is the minimum of the remaining elements in the block
             # or the remaining elements in the tensor.
-            for k in range(min(BLOCK_DIM, out_shape[2] - a_col_block*BLOCK_DIM, out_shape[1] - a_col_block*BLOCK_DIM)):
+            for k in range(min(BLOCK_DIM, out_shape[2] - block_slide, out_shape[1] - block_slide)):
                 window_value += a_shared[pi,k] * b_shared[k,pj]
         cuda.syncthreads()
 
