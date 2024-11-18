@@ -487,6 +487,16 @@ def _tensor_matrix_multiply(
     #    b) Copy into shared memory for b matrix
     #    c) Compute the dot produce for position c[i, j]
 
+
+    # Check if indices are within bounds
+    if i >= out_shape[1] or j >= out_shape[2]:
+        return
+    
+    # Check if the position is within the bounds of the out tensor
+    out_pos = batch * out_strides[0] + i * out_strides[1] + j * out_strides[2]
+    if out_pos >= out_size:
+        return
+
     # Determine the block offset. This means how many blocks we need to move over to get to the correct starting block.
     # For example, if i = 64, then row_block_number = 64 // 32 = 2.
     # This means we need to move down to block row 2 to get to the correct starting block for a.
@@ -503,7 +513,7 @@ def _tensor_matrix_multiply(
             # Reads in the values of block_row and block_col into shared memory in a loop
             for k in range(BLOCK_DIM):
                 a_pos = batch*a_batch_stride + (row_block_number*BLOCK_DIM + pi)*a_strides[1] + (a_col_block*BLOCK_DIM +k)*a_strides[2]
-                b_pos = batch*b_batch_stride + (b_row_blocks*BLOCK_DIM + k)*b_strides[1] + (col_block_number*BLOCK_DIM + pj)*b_strides[2]
+                b_pos = batch*b_batch_stride + (b_row_block*BLOCK_DIM + k)*b_strides[1] + (col_block_number*BLOCK_DIM + pj)*b_strides[2]
                 a_shared[pi, k] = a_storage[a_pos]
                 b_shared[k, pj] = b_storage[b_pos]
             cuda.syncthreads()
