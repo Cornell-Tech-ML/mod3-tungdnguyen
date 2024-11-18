@@ -340,16 +340,15 @@ def tensor_reduce(
         reduce_dim: int,
         reduce_value: float,
     ) -> None:
-
         BLOCK_DIM = 1024
         cache = cuda.shared.array(BLOCK_DIM, numba.float64)
         out_index = cuda.local.array(MAX_DIMS, numba.int32)
         pos = cuda.threadIdx.x
         out_pos = cuda.blockIdx.x
-        
+
         if pos < a_shape[reduce_dim]:
             to_index(out_pos, out_shape, out_index)
-            out_index[reduce_dim] = 1
+            out_index[reduce_dim] = pos
             a_pos = index_to_position(out_index, a_strides)
             cache[pos] = a_storage[a_pos]
         else:
@@ -366,8 +365,7 @@ def tensor_reduce(
 
         # Write result
         if pos == 0:
-            new_out_pos = index_to_position(out_index, out_strides)
-            out[new_out_pos] = cache[0]
+            out[out_pos] = cache[0]
 
     return jit(_reduce)  # type: ignore
 
