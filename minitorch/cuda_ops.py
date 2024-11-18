@@ -497,11 +497,6 @@ def _tensor_matrix_multiply(
     if out_pos >= out_size:
         return
 
-    # Determine the block offset. This means how many blocks we need to move over to get to the correct starting block.
-    # For example, if i = 64, then row_block_number = 64 // 32 = 2.
-    # This means we need to move down to block row 2 to get to the correct starting block for a.
-    row_block_number = i // BLOCK_DIM
-    col_block_number = j // BLOCK_DIM
     #Number of blocks can fit in the column dimension of a. This is because we slide the block across the columns of a.
     a_col_blocks = a_shape[2] // BLOCK_DIM
     #Number of blocks can fit in the row dimension of b. This is because we slide the block across the rows of b.
@@ -519,17 +514,20 @@ def _tensor_matrix_multiply(
             b_shared[pi, pj] = 0.0
             cuda.syncthreads()
 
-            # Calculate the position of the value in the a and b tensors.
+            # Calculate the position of the value in the a and b tensors. This is the position of the block in the tensor.
+            # This code runs simultanously for all threads in the block. -> Reads in the values of block_row and block_col into shared memory in a loop..
             a_pos = batch*a_batch_stride + i*a_strides[1] + (a_col_block*BLOCK_DIM + pj)*a_strides[2]
             b_pos = batch*b_batch_stride + (b_row_block*BLOCK_DIM + pi)*b_strides[1] + j*b_strides[2]
-            # Reads in the values of block_row and block_col into shared memory in a loop
+            # Copy into shared memory for a and b matrices.
             a_shared[pi, pj] = a_storage[a_pos]
             b_shared[pi, pj] = b_storage[b_pos]
             cuda.syncthreads()
 
             # Compute the dot product
             if i < out_shape[1] and j < out_shape[2]:
-                for k in range(BLOCK_DIM):
+                #Calculate the number of elements in the dot product. This is the minimum of the remaining elements in the block
+                # or the remaining elements in the tensor.
+                for k in range(min(BLOCK_DIM, out_shape[2] - b_row_block*BLOCK_DIM, out_shape[1] - a_col_block*BLOCK_DIM)):
                     window_value += a_shared[pi,k] * b_shared[k,pj]
         cuda.syncthreads()
     # The final value of c[i,j] is the sum of the dot products in each BLOCK_DIM window into that position.
