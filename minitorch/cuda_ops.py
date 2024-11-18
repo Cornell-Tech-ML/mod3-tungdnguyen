@@ -488,11 +488,6 @@ def _tensor_matrix_multiply(
     #    c) Compute the dot produce for position c[i, j]
 
 
-    # Check if the position is within the bounds of the out tensor
-    out_pos = batch * out_strides[0] + i * out_strides[1] + j * out_strides[2]
-    if out_pos >= out_size:
-        return
-
     #Number of blocks can fit in the column dimension of a. This is because we slide the block across the columns of a.
     a_col_blocks = a_shape[2] // BLOCK_DIM
     #Number of blocks can fit in the row dimension of b. This is because we slide the block across the rows of b.
@@ -535,6 +530,9 @@ def _tensor_matrix_multiply(
     # The final value of c[i,j] is the sum of the dot products in each BLOCK_DIM window into that position.
     # c[i,j] = sum(a[i,k] * b[k,j]) for k in range(BLOCK_DIM)
     # Write the final temp value window_value to the out tensor.
-    out[out_pos] = window_value
+    # Check if the position is within the bounds of the out tensor
+    out_pos = batch * out_strides[0] + i * out_strides[1] + j * out_strides[2]
+    if out_pos < out_size:
+        out[out_pos] = window_value
 
 tensor_matrix_multiply = jit(_tensor_matrix_multiply)
