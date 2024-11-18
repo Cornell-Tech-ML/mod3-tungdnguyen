@@ -511,7 +511,7 @@ def _tensor_matrix_multiply(
             b_pos = batch*b_batch_stride + (block_slide + pi)*b_strides[1] + j*b_strides[2]
             # Copy into shared memory for b matrix.
             b_shared[pi, pj] = b_storage[b_pos]
-            cuda.syncthreads()
+        cuda.syncthreads()
 
         # Compute the dot product
         if i < out_shape[1] and j < out_shape[2]:
