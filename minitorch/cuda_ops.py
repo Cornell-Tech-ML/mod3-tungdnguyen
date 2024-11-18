@@ -365,7 +365,8 @@ def tensor_reduce(
 
         # Write result
         if pos == 0:
-            out[out_pos] = cache[0]
+            new_out_pos = index_to_position(out_index, out_strides)
+            out[new_out_pos] = cache[0]
 
     return jit(_reduce)  # type: ignore
 
