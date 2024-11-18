@@ -521,7 +521,7 @@ def _tensor_matrix_multiply(
         if i < out_shape[1] and j < out_shape[2]:
             #Calculate the number of elements in the dot product. This is the minimum of the remaining elements in the block
             # or the remaining elements in the tensor.
-            for k in range(min(BLOCK_DIM, out_shape[2] - block_slide, out_shape[1] - block_slide)):
+            for k in range(min(BLOCK_DIM, out_shape[2] - block_slide)):
                 window_value += a_shared[pi,k] * b_shared[k,pj]
         cuda.syncthreads()
 
