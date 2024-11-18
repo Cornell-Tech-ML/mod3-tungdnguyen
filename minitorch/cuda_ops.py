@@ -487,10 +487,34 @@ def _tensor_matrix_multiply(
     #    b) Copy into shared memory for b matrix
     #    c) Compute the dot produce for position c[i, j]
 
-    for k in range(size):
-        temp += a_shared[pi, k] * b_shared[k, pj]
-    out[batch*size*size + i*size + j] = temp
+    # Determine the block offset. This means how many blocks we need to move over to get to the correct starting block.
+    # For example, if i = 64, then row_block_number = 64 // 32 = 2.
+    # This means we need to move down to block row 2 to get to the correct starting block for a.
+    row_block_number = i // BLOCK_DIM
+    col_block_number = j // BLOCK_DIM
+    #Number of blocks can fit in the column dimension of a. This is because we slide the block across the columns of a.
+    a_col_blocks = a_shape[2] // BLOCK_DIM
+    #Number of blocks can fit in the row dimension of b. This is because we slide the block across the rows of b.
+    b_row_blocks = b_shape[1] // BLOCK_DIM
 
+    # Move across the shared dimension by block dim.
+    for a_col_block in range(a_col_blocks):
+        for b_row_block in range(b_row_blocks):
+            # Reads in the values of block_row and block_col into shared memory in a loop
+            for k in range(BLOCK_DIM):
+                a_pos = batch*a_batch_stride + (row_block_number*BLOCK_DIM + pi)*a_strides[1] + (a_col_block*BLOCK_DIM +k)*a_strides[2]
+                b_pos = batch*b_batch_stride + (b_row_blocks*BLOCK_DIM + k)*b_strides[1] + (col_block_number*BLOCK_DIM + pj)*b_strides[2]
+                a_shared[pi, k] = a_storage[a_pos]
+                b_shared[k, pj] = b_storage[b_pos]
+            cuda.syncthreads()
 
+            # Compute the dot product
+            window_value = 0.0
+            for k in range(BLOCK_DIM):
+                window_value += a_shared[pi,k] * b_shared[k,pj]
+            # The final value of c[i,j] is the sum of the dot products in each BLOCK_DIM window into that position.
+            # c[i,j] = sum(a[i,k] * b[k,j]) for k in range(BLOCK_DIM)
+            out_pos = batch * out_strides[0] + i * out_strides[1] + j * out_strides[2]
+            out[out_pos] += window_value
 
 tensor_matrix_multiply = jit(_tensor_matrix_multiply)
