@@ -403,8 +403,8 @@ def _mm_practice(out: Storage, a: Storage, b: Storage, size: int) -> None:
 
     """
     BLOCK_DIM = 32
-    a_shared = cuda.shared.array(BLOCK_DIM*BLOCK_DIM, numba.float64)
-    b_shared = cuda.shared.array(BLOCK_DIM*BLOCK_DIM, numba.float64)
+    a_shared = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), dtype=numba.float64)
+    b_shared = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), dtype=numba.float64)
     i = cuda.blockIdx.x * THREADS_PER_BLOCK + cuda.threadIdx.x
     j = cuda.blockIdx.y * THREADS_PER_BLOCK + cuda.threadIdx.y
 
