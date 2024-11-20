@@ -46,9 +46,9 @@ def index_to_position(index: Index, strides: Strides) -> int:
         Position in storage
 
     """
-    position = 0 
-    for ind,stride in zip(index, strides):
-        position += ind * stride 
+    position = 0
+    for ind, stride in zip(index, strides):
+        position += ind * stride
     return position
 
 
@@ -97,7 +97,7 @@ def broadcast_index(
     for i in range(len(shape)):
         s = shape[i]
         if s > 1:
-            out_index[i] = big_index[i+ (len(big_shape) - len(shape))]
+            out_index[i] = big_index[i + (len(big_shape) - len(shape))]
         else:
             out_index[i] = 0
     return None

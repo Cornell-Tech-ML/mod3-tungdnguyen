@@ -41,14 +41,14 @@ def device_jit(fn: Fn, **kwargs: Any) -> Fn:
     -------
         jitted function.
 
-        
+
     """
     return _jit(device=True, **kwargs)(fn)  # type: ignore
 
 
 def jit(fn: Fn, **kwargs: Any) -> FakeCUDAKernel:
     """Returns a jitted version of the function.
-    
+
     Args:
     ----
         fn: function to jit.
@@ -207,6 +207,7 @@ def tensor_map(
             in_pos = index_to_position(in_index, in_strides)
             out_pos = index_to_position(out_index, out_strides)
             out[out_pos] = fn(in_storage[in_pos])
+
     return cuda.jit()(_map)  # type: ignore
 
 
@@ -284,19 +285,20 @@ def _sum_practice(out: Storage, a: Storage, size: int) -> None:
     cache = cuda.shared.array(BLOCK_DIM, numba.float64)
     i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     pos = cuda.threadIdx.x
-    
+
     # Load data into shared memory
     if i < size:
         cache[pos] = a[i]
     cuda.syncthreads()
-    
+
     # Sum each block starting from the first element of the block.
     if pos == 0 and i < size:
         temp = 0.0
-        #Calculates the sum based on the block size or the remaining block size.
+        # Calculates the sum based on the block size or the remaining block size.
         for j in range(min(BLOCK_DIM, size - cuda.blockIdx.x * BLOCK_DIM)):
             temp += cache[j]
         out[cuda.blockIdx.x] = temp
+
 
 jit_sum_practice = cuda.jit()(_sum_practice)
 
@@ -352,7 +354,7 @@ def tensor_reduce(
             a_pos = index_to_position(out_index, a_strides)
             cache[pos] = a_storage[a_pos]
         else:
-            # Padding the shared memory with the reduce value. 
+            # Padding the shared memory with the reduce value.
             # For the case where the size of reduce dimension is not a power of 2.
             cache[pos] = reduce_value
         cuda.syncthreads()
@@ -412,15 +414,16 @@ def _mm_practice(out: Storage, a: Storage, b: Storage, size: int) -> None:
 
     if i < size and j < size:
         # Bring to shared memory for both a and b
-        a_shared[i,j] = a[i*size + j]
-        b_shared[i,j] = b[i*size + j]
+        a_shared[i, j] = a[i * size + j]
+        b_shared[i, j] = b[i * size + j]
         cuda.syncthreads()
 
         # Compute the dot product
         temp = 0.0
         for k in range(size):
-            temp += a_shared[i,k] * b_shared[k,j]
-        out[i*size + j] = temp
+            temp += a_shared[i, k] * b_shared[k, j]
+        out[i * size + j] = temp
+
 
 jit_mm_practice = jit(_mm_practice)
 
@@ -492,7 +495,7 @@ def _tensor_matrix_multiply(
     # Initialize the temp window value to 0.0
     window_value = 0.0
 
-      # Move across the shared dimension by block dim. Block slide simutaneously slides across the columns of a and rows of b.
+    # Move across the shared dimension by block dim. Block slide simutaneously slides across the columns of a and rows of b.
     # Block sliding is the same for columns of a and rows of b since a_shape[-1] == b_shape[-2].
     for block_slide in range(0, a_shape[2], BLOCK_DIM):
         # Clear shared memory
@@ -502,27 +505,35 @@ def _tensor_matrix_multiply(
         cuda.syncthreads()
 
         # Calculate the position of the value in the a and b tensors.
-        #Guard against out of bounds access.
+        # Guard against out of bounds access.
         if block_slide + pj < a_shape[2] and i < out_shape[1]:
             # the position of the value in the a tensor belongs to current row i.
-            a_pos = batch*a_batch_stride + i*a_strides[1] + (block_slide + pj)*a_strides[2]
+            a_pos = (
+                batch * a_batch_stride
+                + i * a_strides[1]
+                + (block_slide + pj) * a_strides[2]
+            )
             # Copy into shared memory for b matrix.
             a_shared[pi, pj] = a_storage[a_pos]
-        #Guard against out of bounds access.
+        # Guard against out of bounds access.
         if block_slide + pi < b_shape[1] and j < out_shape[2]:
             # the position of the value in the a tensor belongs to current column j
-            b_pos = batch * b_batch_stride + (block_slide + pi) * b_strides[1] + j * b_strides[2]
+            b_pos = (
+                batch * b_batch_stride
+                + (block_slide + pi) * b_strides[1]
+                + j * b_strides[2]
+            )
             # Copy into shared memory for b matrix.
             b_shared[pi, pj] = b_storage[b_pos]
-        
+
         cuda.syncthreads()
 
         # Compute the dot product
         if i < out_shape[1] and j < out_shape[2]:
-            #Calculate the number of elements in the dot product. This is the minimum of the remaining elements in the block
+            # Calculate the number of elements in the dot product. This is the minimum of the remaining elements in the block
             # or the remaining elements in the tensor.
             for k in range(min(BLOCK_DIM, a_shape[2] - block_slide)):
-                window_value += a_shared[pi,k] * b_shared[k,pj]
+                window_value += a_shared[pi, k] * b_shared[k, pj]
         cuda.syncthreads()
 
     # The final value of c[i,j] is the sum of the dot products in each BLOCK_DIM window into that position.
@@ -533,5 +544,6 @@ def _tensor_matrix_multiply(
         out_pos = batch * out_strides[0] + i * out_strides[1] + j * out_strides[2]
         if out_pos < out_size:
             out[out_pos] = window_value
+
 
 tensor_matrix_multiply = jit(_tensor_matrix_multiply)
