@@ -352,6 +352,8 @@ def tensor_reduce(
             a_pos = index_to_position(out_index, a_strides)
             cache[pos] = a_storage[a_pos]
         else:
+            # Padding the shared memory with the reduce value. 
+            # For the case where the size of reduce dimension is not a power of 2.
             cache[pos] = reduce_value
         cuda.syncthreads()
 
@@ -494,7 +496,7 @@ def _tensor_matrix_multiply(
     # Block sliding is the same for columns of a and rows of b since a_shape[-1] == b_shape[-2].
     for block_slide in range(0, a_shape[2], BLOCK_DIM):
         # Clear shared memory
-        # This code runs simultanously for all threads in the block. -> Clear all the values in the shared memory.
+        # This code runs simultanously for all threads in the block, we need to clear the shared memory for each slide.
         a_shared[pi, pj] = 0.0
         b_shared[pi, pj] = 0.0
         cuda.syncthreads()
